@@ -251,10 +251,10 @@ double AvPhaseLLR(struct fitFuncParams *inParams){
   output->c = (double *)malloc(4 * sizeof(double));
   output->v = (double *)malloc(9 * sizeof(double));
 
-	struct lh_OUTPUT * lhoutput;
-  lhoutput = (struct lh_OUTPUT *)malloc(1 * sizeof(struct lh_OUTPUT));
-  lhoutput->phiI = (double *)malloc(1 * sizeof(double));
-  lhoutput->lhI = (double *)malloc(1 * sizeof(double));
+  // struct avPhase_param * avPhaseParam;
+  // avPhaseParam = (struct avPhase_param *)malloc(1 * sizeof(struct avPhase_param));
+  // avPhaseParam->b = (double *)malloc(4 * sizeof(double));
+  // avPhaseParam->norm = (double *)malloc(1 * sizeof(double));
 
   double tmp;
   double res;
@@ -305,6 +305,8 @@ double AvPhaseLLR(struct fitFuncParams *inParams){
   b[3]=2.5;
   b[4]=0.8;
 
+//avPhaseParam.b[0] = b[0];
+//printf("LLR_PSOav: avPhaseParam.b = %f\n",);
   //double z[8];  // 4 (real) + 4 (complex) solutions from gsl_poly_complex_solve
 
   unsigned int nr;  // number of EFFECTIVE roots (real number && abs(r)<1)
@@ -368,10 +370,24 @@ double AvPhaseLLR(struct fitFuncParams *inParams){
 double bx[2];
 bx[0]= 1.0;
 bx[1]= 2.0;
+double test;
+test=9.999;
+
+norm[0] = 1.0;
+norm[1] = 1.1;
+norm[2] = 1.2;
+norm[3] = 1.3;
 
       gsl_function F;
+      struct avPhase_param avPhaseParam = {b[0],b[1],b[2],b[3],b[4],test};
+      //avPhaseParam->b = b;
+      //avPhaseParam->norm = &test;
+      //printf("LLR_PSOav: avPhaseParam.b = %f\n",(*avPhaseParam).b[1]);
+      //printf("LLR_PSOav: test = %f\n",*test);
+      //printf("LLR_PSOav: avPhaseParam.norm = %f\n",(*avPhaseParam).norm);
       F.function = &f;
-      F.params = b;
+      F.params = &avPhaseParam;
+      //F.norm = 2.22;
       gsl_integration_qags(&F,0,1.57,0,1e-5,1000,w,&result,&error);
       printf("LLR_PSOav: result = %.18f\n",result );
 
@@ -437,9 +453,6 @@ bx[1]= 2.0;
  free(output->c);
  free(output->v);
  free(output);
- free(lhoutput->phiI);
- free(lhoutput->lhI);
- free(lhoutput);
  free(Phi);
  free(s);
  for (i = 0; i < Np; i++) {
@@ -456,17 +469,29 @@ bx[1]= 2.0;
 }
 
 
-double f (double x, void * params) {
+double f (double x, void * p) {
   //double alpha0 = *(double *) params[0];
-  double *b = (double *)params;
-  printf("f: b = %f\n", b[1];
+  struct avPhase_param *params = (struct avPhase_param *) p;
+  double b[5], norm;
+  b[0]=(params->p0);
+  b[1]=(params->p1);
+  b[2]=(params->p2);
+  b[3]=(params->p3);
+  b[4]=(params->p4);
+  norm = (params->p5);  // p4 is 'norm'
+  printf("f: b = %f\n", b[4]);
+  printf("f: norm = %f\n", norm);
+  //printf("f: p->b = %f\n", (*params).b[0]);
+  //double *norm = params->norm;
+  //double norm1 = norm;
+  //printf("f: norm = %f\n", norm1);
   //printf("f: b = %f\n", *(b+2);
   //b[1]=bb[1];
   //b[2]=bb[2];
   //b[3]=bb[3];
   //b[4]=bb[4];
   double f = exp(2.0) * cos(x); // + b[2] * sin(x) + b[3] * sin(2.0 * x) +
-              //  b[4] * pow(cos(x),2.0); // - norm;
+    //           b[4] * pow(cos(x),2.0); // - norm;
   return f;
 }
 
