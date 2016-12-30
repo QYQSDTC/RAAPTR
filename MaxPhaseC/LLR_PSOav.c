@@ -258,7 +258,7 @@ double AvPhaseLLR(struct fitFuncParams *inParams){
 
   double tmp;
   double res;
-  unsigned int lpr, i, j, j1, jj;
+  unsigned int lpr, i, j, j1, j2, j3, jj;
 //  size_t pp[6];   not used.
   const size_t kk = 1, stride = 1, nn = 6;  // gsl_sort_largest_index
   //double src[6] = {1.0, 3.0, 6.0, 4.0, 5.0, 2.0};  //
@@ -299,11 +299,11 @@ double AvPhaseLLR(struct fitFuncParams *inParams){
   //printf("MP5: nDim = %d\n", nDim);
 
   double b[5];  // quartic equation coefficients, closed form solution
-  b[0]=1.0;
-  b[1]=2.0;
-  b[2]=1.2;
-  b[3]=2.5;
-  b[4]=0.8;
+  // b[0]=1.0;
+  // b[1]=2.0;
+  // b[2]=1.2;
+  // b[3]=2.5;
+  // b[4]=0.8;
 
 //avPhaseParam.b[0] = b[0];
 //printf("LLR_PSOav: avPhaseParam.b = %f\n",);
@@ -343,6 +343,7 @@ double AvPhaseLLR(struct fitFuncParams *inParams){
   double *norm, *norm1,*LRn, M, norm2;
   norm = malloc(4 * sizeof(double));
   norm1 = malloc(4 * sizeof(double));
+  norm2 = malloc(4 * sizeof(double));
   LRn = malloc(4 * sizeof(double));
   double sign [4][5] = {{1.0,1.0,1.0,1.0,1.0},{1.0, -1.0, 1.0, -1.0, 1.0},
   {1.0, -1.0, -1.0, 1.0, 1.0},{1.0, 1.0, -1.0, -1.0, 1.0}};
@@ -367,88 +368,93 @@ double AvPhaseLLR(struct fitFuncParams *inParams){
   gsl_integration_workspace *w
      = gsl_integration_workspace_alloc(1000);
 
-double bx[2];
-bx[0]= 1.0;
-bx[1]= 2.0;
-double test;
-test=9.999;
+// double bx[2];
+// bx[0]= 1.0;
+// bx[1]= 2.0;
+// double test;
+// test=9.999;
+//
+// norm[0] = 1.0;
+// norm[1] = 1.1;
+// norm[2] = 1.2;
+// norm[3] = 1.3;
 
-norm[0] = 1.0;
-norm[1] = 1.1;
-norm[2] = 1.2;
-norm[3] = 1.3;
+      // gsl_function F;
+      // struct avPhase_param avPhaseParam = {b[0],b[1],b[2],b[3],b[4],test};
+      // //avPhaseParam->b = b;
+      // //avPhaseParam->norm = &test;
+      // //printf("LLR_PSOav: avPhaseParam.b = %f\n",(*avPhaseParam).b[1]);
+      // //printf("LLR_PSOav: test = %f\n",*test);
+      // //printf("LLR_PSOav: avPhaseParam.norm = %f\n",(*avPhaseParam).norm);
+      // F.function = &f;
+      // F.params = &avPhaseParam;
+      // //F.norm = 2.22;
+      // gsl_integration_qags(&F,0,1.57,0,1e-5,1000,w,&result,&error);
+      // printf("LLR_PSOav: result = %.18f\n",result );
 
+  for (i = 0; i < Np; i++){
+  //printf("MP5: i = %d\n", i);
+  //printf("alphaP = %f, deltaP = %f \n", *(alphaP+i), *(deltaP+i));
+    gsl_vector_set(skyLocPulsar, 0, cos(deltaP[i])*cos(alphaP[i]) );
+    gsl_vector_set(skyLocPulsar, 1, cos(deltaP[i])*sin(alphaP[i]) );
+    gsl_vector_set(skyLocPulsar, 2, sin(deltaP[i]) );
+
+    gsl_blas_ddot(skyLocSrc, skyLocPulsar, &res);
+  //printf("MP5: kp*k = %f\n", res);
+
+    theta = acos(res);
+  //printf("theta = %f\n", theta);
+
+    cfunc(N, alpha, delta, alphaP[i], deltaP[i], theta,
+          Amp, omega, iota, thetaN, phi0, Phi, s[i], (sd+i), output);
+    tmp = (*output).v[2] - 0.5 * ((*output).v[6]+(*output).v[8]);
+      b[0] = tmp;
+    tmp = (*output).v[0] - (*output).v[5];
+      b[1] = tmp;
+    tmp = (*output).v[1] - (*output).v[7];
+      b[2] = tmp;
+    tmp = -0.5 * (*output).v[4];
+      b[3] = tmp;
+    tmp = 0.5 * ((*output).v[6]-(*output).v[3]);
+      b[4] = tmp;
+
+    for (j = 0; j < 4; j++) {
+      for ( j1 = 0; j1 < 4; j1++) {
+        bs[j1] = b[j1] * sign[j][j1];
+      }
+      tmp0 = 0;
+      for ( jj = 1; jj < 5; jj++) {
+        if (bs[jj] > 0) {
+          tmp0 = tmp0 + bs[jj];
+        }
+      }
+      norm[j] = tmp0;
       gsl_function F;
-      struct avPhase_param avPhaseParam = {b[0],b[1],b[2],b[3],b[4],test};
-      //avPhaseParam->b = b;
-      //avPhaseParam->norm = &test;
-      //printf("LLR_PSOav: avPhaseParam.b = %f\n",(*avPhaseParam).b[1]);
-      //printf("LLR_PSOav: test = %f\n",*test);
-      //printf("LLR_PSOav: avPhaseParam.norm = %f\n",(*avPhaseParam).norm);
+      struct avPhase_param avPhaseParam = {b[0],b[1],b[2],b[3],b[4],norm[j]};
       F.function = &f;
       F.params = &avPhaseParam;
-      //F.norm = 2.22;
-      gsl_integration_qags(&F,0,1.57,0,1e-5,1000,w,&result,&error);
-      printf("LLR_PSOav: result = %.18f\n",result );
-
- //  for (i = 0; i < Np; i++){
- //  //printf("MP5: i = %d\n", i);
- //  //printf("alphaP = %f, deltaP = %f \n", *(alphaP+i), *(deltaP+i));
- //    gsl_vector_set(skyLocPulsar, 0, cos(deltaP[i])*cos(alphaP[i]) );
- //    gsl_vector_set(skyLocPulsar, 1, cos(deltaP[i])*sin(alphaP[i]) );
- //    gsl_vector_set(skyLocPulsar, 2, sin(deltaP[i]) );
- //
- //    gsl_blas_ddot(skyLocSrc, skyLocPulsar, &res);
- //  //printf("MP5: kp*k = %f\n", res);
- //
- //    theta = acos(res);
- //  //printf("theta = %f\n", theta);
- //
- //    cfunc(N, alpha, delta, alphaP[i], deltaP[i], theta,
- //          Amp, omega, iota, thetaN, phi0, Phi, s[i], (sd+i), output);
- //    tmp = (*output).v[2] - 0.5 * ((*output).v[6]+(*output).v[8]);
- //      b[0] = tmp;
- //    tmp = (*output).v[0] - (*output).v[5];
- //      b[1] = tmp;
- //    tmp = (*output).v[1] - (*output).v[7];
- //      b[2] = tmp;
- //    tmp = -0.5 * (*output).v[4];
- //      b[3] = tmp;
- //    tmp = 0.5 * ((*output).v[6]-(*output).v[3]);
- //      b[4] = tmp;
- //
- //    for (j = 0; j < 4; j++) {
- //      for ( j1 = 0; j1 < 4; j1++) {
- //        bs[j1] = b[j1] * sign[j][j1];
- //      }
- //      tmp0 = 0;
- //      for ( jj = 1; jj < 5; jj++) {
- //        if (bs(jj) > 0) {
- //          tmp0 = tmp0 + bs(jj);
- //        }
- //      }
- //      norm(j) = tmp0;
- //  gsl_function F;
- //  F.function = &f;
- //  F.params = &alpha0;
- //  gsl_integration_qags(&F,intlow(j),intup(j),0,1e-5,1000,w,&result,&error);
- //  printf("result = %.18f\n",result );
- //  LRn(j) = result;
- //  if (isinf LRn(j)) {
- //    printf("AvPhaseLLR Inf for PSR i = %d\n",i );
- //    printf("LRn at j = %d\n",j );
- //  else{ isnan (LRn(j))
- //    printf("AvPhaseLLR NAN for PSR i = %d\n",i );
- //    printf("LRn at j = %d\n",j );
- //      }
- //    }
- //  norm1(j) = norm(j) + log(LRn(j) + b[1]);
- //  }
- //    NN = max(norm1);
- //    norm2 = norm1 - NN;
- //    M = sum(exp(norm2));
- //    LLR = LLR + NN + log(M);
- // }
+  gsl_integration_qags(&F,intlow[j],intup[j],0,1e-5,1000,w,&result,&error);
+  printf("result = %.18f\n",result );
+  LRn[j] = result;
+  if (gsl_isinf (LRn[j]) {
+    printf("AvPhaseLLR Inf for PSR i = %d\n",i );
+    printf("LRn at j = %d\n",j );
+  else{ gsl_isnan (LRn[j])
+    printf("AvPhaseLLR NAN for PSR i = %d\n",i );
+    printf("LRn at j = %d\n",j );
+      }
+    }
+  norm1[j] = norm[j] + log(LRn[j] + b[1]);
+  }
+    NN = gsl_max_dbl(norm1);
+    for ( j2 = 0; i < 4; i++) {
+      norm2[j2] = norm1[j2] - NN;
+    }
+    for (j3 = 0; j3 < 4; j3++) {
+       M += exp(norm2[j3]);
+    }
+    LLR = LLR + NN + log(M);
+ }
  gsl_integration_workspace_free(w);
  free(output->c);
  free(output->v);
